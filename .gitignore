@@ -34,3 +34,6 @@ output/
 
 # Logs
 *.log
+
+# Local archives / handoff bundles
+*.zip

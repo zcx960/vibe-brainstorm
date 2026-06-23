@@ -1,10 +1,11 @@
-import { useCallback } from 'react';
+import { useCallback, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import {
   ReactFlow,
   Background,
   Controls,
   MiniMap,
   BackgroundVariant,
+  useReactFlow,
   type OnNodeDrag,
   type OnConnect,
   type OnNodesDelete,
@@ -17,11 +18,14 @@ import { useResolvedTheme } from '../../store/themeStore';
 import { createEdge, deleteNode, deleteEdge } from '../../api/projects';
 import { sendPresence } from '../../realtime/ws';
 import { nodeTypes } from './nodeTypes';
+import { CanvasContextMenu } from './CanvasContextMenu';
+import type { CanvasContextMenuState } from './CanvasContextMenuParts';
 
 export function Canvas() {
   // Drives React Flow's built-in dark styling (minimap, controls, background)
   // to match the app theme.
   const colorMode = useResolvedTheme();
+  const { screenToFlowPosition } = useReactFlow();
   const rfNodes = useGraphStore((s) => s.rfNodes);
   const rfEdges = useGraphStore((s) => s.rfEdges);
   const onNodesChange = useGraphStore((s) => s.onNodesChange);
@@ -32,6 +36,32 @@ export function Canvas() {
   const reload = useGraphStore((s) => s.load);
 
   const pushToast = useUiStore((s) => s.pushToast);
+  const [contextMenu, setContextMenu] =
+    useState<CanvasContextMenuState | null>(null);
+
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
+
+  const openContextMenu = useCallback(
+    (
+      event:
+        | MouseEvent
+        | ReactMouseEvent<Element, MouseEvent>,
+      targetNode: IdeaRFNode | null,
+    ) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const flow = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+      setContextMenu({
+        screen: { x: event.clientX, y: event.clientY },
+        flow: { x: flow.x, y: flow.y },
+        targetNode,
+      });
+    },
+    [screenToFlowPosition],
+  );
 
   // Persist position when a drag ends.
   const onNodeDragStop: OnNodeDrag<IdeaRFNode> = useCallback(
@@ -105,6 +135,9 @@ export function Canvas() {
         onNodesDelete={onNodesDelete}
         onEdgesDelete={onEdgesDelete}
         onSelectionChange={onSelectionChange}
+        onPaneClick={closeContextMenu}
+        onPaneContextMenu={(event) => openContextMenu(event, null)}
+        onNodeContextMenu={(event, node) => openContextMenu(event, node)}
         deleteKeyCode={['Delete', 'Backspace']}
         fitView
         fitViewOptions={{ padding: 0.25, maxZoom: 1 }}
@@ -123,6 +156,12 @@ export function Canvas() {
           nodeStrokeWidth={2}
         />
       </ReactFlow>
+      {contextMenu && (
+        <CanvasContextMenu
+          menu={contextMenu}
+          onClose={closeContextMenu}
+        />
+      )}
     </div>
   );
 }

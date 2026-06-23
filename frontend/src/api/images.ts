@@ -7,6 +7,10 @@ import type {
   ImageErrorEvent,
   ImageDoneEvent,
   ImageFatalErrorEvent,
+  ImageUploadRequest,
+  ImageUploadResponse,
+  NodeT,
+  EdgeT,
 } from '../types';
 
 /**
@@ -105,6 +109,48 @@ export function streamImageGenerate(
   return { abort: () => controller.abort() };
 }
 
+export async function uploadImageNode(
+  req: ImageUploadRequest,
+): Promise<ImageUploadResponse> {
+  const form = new FormData();
+  form.set('project_id', req.project_id);
+  if (req.parent_id) form.set('parent_id', req.parent_id);
+  form.set('title', req.title);
+  form.set('content', req.content ?? '');
+  form.set('x', String(req.position.x));
+  form.set('y', String(req.position.y));
+  form.set('file', req.file);
+
+  const res = await fetch(`${API_BASE}/images/upload`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: form,
+  });
+
+  if (res.status === 401) {
+    try {
+      localStorage.removeItem(TOKEN_KEY);
+    } catch {
+      void 0;
+    }
+    window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+  }
+
+  const text = await res.text();
+  if (!res.ok) {
+    throw new Error(uploadErrorMessage(res.status, text));
+  }
+  if (!text) {
+    throw new Error('上传接口没有返回图片节点');
+  }
+
+  const payload: unknown = JSON.parse(text);
+  if (!isImageUploadResponse(payload)) {
+    throw new Error('上传接口返回了无效图片节点');
+  }
+  return payload;
+}
+
 function dispatchFrame(frame: string, handlers: ImageHandlers): void {
   const trimmed = frame.trim();
   if (!trimmed) return;
@@ -161,4 +207,50 @@ function dispatchFrame(frame: string, handlers: ImageHandlers): void {
 function errMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   return String(err);
+}
+
+function uploadErrorMessage(status: number, text: string): string {
+  if (!text) return `上传失败 (HTTP ${status})`;
+  try {
+    const payload: unknown = JSON.parse(text);
+    if (isRecord(payload) && typeof payload.detail === 'string') {
+      return payload.detail;
+    }
+  } catch {
+    return text;
+  }
+  return text;
+}
+
+function isImageUploadResponse(value: unknown): value is ImageUploadResponse {
+  if (!isRecord(value) || !isNode(value.node)) return false;
+  return value.edge === null || value.edge === undefined || isEdge(value.edge);
+}
+
+function isNode(value: unknown): value is NodeT {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.project_id === 'string' &&
+    (typeof value.parent_id === 'string' || value.parent_id === null) &&
+    typeof value.title === 'string' &&
+    typeof value.content === 'string' &&
+    isRecord(value.data) &&
+    typeof value.created_at === 'string'
+  );
+}
+
+function isEdge(value: unknown): value is EdgeT {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.project_id === 'string' &&
+    typeof value.source_id === 'string' &&
+    typeof value.target_id === 'string' &&
+    isRecord(value.data)
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

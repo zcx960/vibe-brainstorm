@@ -115,6 +115,16 @@ All spacing derives from a base of 4px.
 - Accessibility: all action buttons are keyboard reachable and labeled.
 - Motion: 150ms shadow/border transition.
 
+### Canvas Context Menu
+
+- Structure: fixed-position menu opened at the pointer coordinate on canvas or node right-click.
+- Variants: canvas menu and node menu.
+- Actions: supports adding idea nodes, uploading image nodes, expansion actions, deletion, layout, and fit-view.
+- Spacing: 6px outer padding, 32px minimum item height, 8px label gap.
+- States: hover, active, danger action, clipped target title, viewport-clamped placement.
+- Accessibility: `role="menu"` wrapper with native button menu items and Escape-to-close support.
+- Motion: 120ms transform/opacity entry.
+
 ## 6. Motion & Interaction
 
 | Type | Duration | Easing | Usage |
