@@ -10,6 +10,7 @@
     <img src="https://img.shields.io/badge/FastAPI-0.110%2B-009688?style=flat-square" alt="FastAPI" />
     <img src="https://img.shields.io/badge/PostgreSQL-17-4169e1?style=flat-square" alt="PostgreSQL 17" />
     <img src="https://img.shields.io/badge/API-OpenAI--compatible-3a7f52?style=flat-square" alt="OpenAI-compatible API" />
+    <img src="https://img.shields.io/badge/License-MIT-c9a227?style=flat-square" alt="MIT License" />
   </p>
 
   <p><strong>English</strong> | <a href="./README.md">中文</a></p>
@@ -198,7 +199,7 @@ The frontend Nginx upload limit is 25MB, matching the backend image upload limit
 - Image generation requires an upstream provider compatible with OpenAI images APIs. Provider support for `images.generate` and `images.edit` may vary.
 - Image references are currently read from this project's `/api/media` image nodes only. Arbitrary external image URLs are not fetched.
 - If no image model is configured, the image expansion panel will ask you to add one in the admin panel first.
-- The repository does not include official screenshots or a license file yet.
+- The repository does not include official screenshots yet.
 
 ## Contributing
 
@@ -211,4 +212,4 @@ npm run build
 
 ## License
 
-No license file has been added yet. Add an explicit open-source license before public distribution or commercial reuse.
+This project is open-sourced under the [MIT License](./LICENSE).

@@ -10,6 +10,7 @@
     <img src="https://img.shields.io/badge/FastAPI-0.110%2B-009688?style=flat-square" alt="FastAPI" />
     <img src="https://img.shields.io/badge/PostgreSQL-17-4169e1?style=flat-square" alt="PostgreSQL 17" />
     <img src="https://img.shields.io/badge/API-OpenAI--compatible-3a7f52?style=flat-square" alt="OpenAI-compatible API" />
+    <img src="https://img.shields.io/badge/License-MIT-c9a227?style=flat-square" alt="MIT License" />
   </p>
 
   <p><a href="./README.en.md">English</a> | <strong>中文</strong></p>
@@ -198,7 +199,7 @@ Docker Compose 会创建：
 - 生图接口要求上游服务兼容 OpenAI images API；不同供应商对 `images.generate` / `images.edit` 的支持可能不完全一致。
 - 图片参考目前只读取本项目 `/api/media` 下的图片节点，不会拉取任意外部图片 URL。
 - 没有配置生图模型时，生图扩展面板会提示先到后台添加模型。
-- 当前仓库尚未包含正式截图和许可证文件。
+- 当前仓库尚未包含正式截图。
 
 ## 贡献
 
@@ -211,4 +212,4 @@ npm run build
 
 ## 许可证
 
-当前仓库还没有添加许可证文件。发布或商用前请先补充明确的开源许可证。
+本项目基于 [MIT License](./LICENSE) 开源。
