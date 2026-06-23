@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "brainstorm-backend"
+version = "0.1.0"
+description = "Backend for the AI brainstorm (脑爆) infinite-canvas app"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "sqlalchemy[asyncio]>=2.0",
+    "asyncpg>=0.29",
+    "pydantic>=2.6",
+    "pydantic-settings>=2.2",
+    "openai>=1.30",
+    "sse-starlette>=2.1",
+    "PyYAML>=6.0",
+    "passlib[bcrypt]>=1.7",
+    # passlib 1.7.4's bcrypt backend is incompatible with bcrypt>=4.1 (removed
+    # __about__) and bcrypt>=5 (strict 72-byte length check during backend
+    # probing). Pin to the last 4.0.x that passlib supports.
+    "bcrypt>=4.0,<4.1",
+    "pyjwt>=2.8",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "aiosqlite>=0.20",
+    "httpx>=0.27",
+]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.setuptools.package-data]
+app = ["prompts/modes/*.yaml"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

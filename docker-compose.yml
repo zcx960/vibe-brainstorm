@@ -1,0 +1,55 @@
+name: vibe-brainstorm
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-brainstorm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-brainstorm}
+      POSTGRES_DB: ${POSTGRES_DB:-brainstorm}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "${DB_PORT:-5432}:5432"   # exposed for local psql; safe to remove in prod
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-brainstorm} -d ${POSTGRES_DB:-brainstorm}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-brainstorm}:${POSTGRES_PASSWORD:-brainstorm}@db:5432/${POSTGRES_DB:-brainstorm}
+      MEDIA_DIR: /app/media
+    volumes:
+      - media_data:/app/media   # persisted generated images, served at /api/media
+    expose:
+      - "8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # lets backend reach a host-side Ollama
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${APP_PORT:-8080}:80"
+
+volumes:
+  db_data:
+  media_data:

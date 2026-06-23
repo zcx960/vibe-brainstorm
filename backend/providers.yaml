@@ -1,0 +1,34 @@
+providers:
+  - id: deepseek
+    name: DeepSeek
+    base_url: https://api.deepseek.com/v1
+    api_key_env: DEEPSEEK_API_KEY
+    models: [deepseek-chat, deepseek-reasoner]
+  - id: openai
+    name: OpenAI
+    base_url: https://api.openai.com/v1
+    api_key_env: OPENAI_API_KEY
+    models: [gpt-4o, gpt-4o-mini]
+    image_models: [dall-e-3, gpt-image-1]
+  - id: dashscope
+    name: 通义千问
+    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    api_key_env: DASHSCOPE_API_KEY
+    models: [qwen-max, qwen-plus]
+    image_models: [wan2.2-t2i-flash, wanx-v1]
+  - id: zhipu
+    name: 智谱 GLM
+    base_url: https://open.bigmodel.cn/api/paas/v4
+    api_key_env: ZHIPU_API_KEY
+    models: [glm-4-plus, glm-4-flash]
+    image_models: [cogview-3-flash, cogview-4]
+  - id: moonshot
+    name: Kimi (Moonshot)
+    base_url: https://api.moonshot.cn/v1
+    api_key_env: MOONSHOT_API_KEY
+    models: [moonshot-v1-8k, moonshot-v1-32k]
+  - id: ollama
+    name: 本地 Ollama
+    base_url: http://host.docker.internal:11434/v1
+    api_key_env: OLLAMA_API_KEY
+    models: [qwen2.5, llama3.1]

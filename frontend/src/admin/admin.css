@@ -1,0 +1,336 @@
+/* ------------------------------------------------------------------ *
+ * Admin mini-app styling.
+ *
+ * Reuses the design tokens declared on :root in index.css (--surface,
+ * --primary, etc.) but lives in its own stylesheet so the admin route
+ * stays self-contained. The .btn / .field / .field__control classes from
+ * index.css are also reused where convenient.
+ * ------------------------------------------------------------------ */
+
+.admin {
+  min-height: 100vh;
+  width: 100vw;
+  background:
+    radial-gradient(1100px 520px at 50% -10%, var(--primary-soft), transparent 70%),
+    var(--bg);
+  color: var(--text);
+}
+
+/* ---- Login card ---- */
+.admin-login {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.admin-login__card {
+  width: 100%;
+  max-width: 360px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-md);
+  padding: 28px 26px 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-login__brand {
+  font-weight: 800;
+  font-size: 22px;
+  text-align: center;
+  background: linear-gradient(120deg, var(--primary), #8b5cf6);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.admin-login__tagline {
+  margin: 4px 0 20px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.admin-login__submit {
+  margin-top: 18px;
+  width: 100%;
+  height: 40px;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.admin-error {
+  margin-top: 14px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: var(--danger);
+  background: rgba(229, 72, 77, 0.1);
+  border: 1px solid rgba(229, 72, 77, 0.25);
+}
+
+/* ---- Shell / header ---- */
+.admin-shell {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 28px 24px 64px;
+}
+
+.admin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.admin-header__title {
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.admin-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-note {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  margin: 2px 0 22px;
+}
+
+.admin-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.admin-toolbar__heading {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* ---- Provider table / list ---- */
+.admin-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.admin-empty {
+  padding: 36px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.admin-table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  white-space: nowrap;
+}
+
+.admin-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.admin-table tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-table__name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.admin-key {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  background: var(--surface-2);
+  padding: 2px 6px;
+  border-radius: 6px;
+  color: var(--text);
+}
+
+.admin-url {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  word-break: break-all;
+  max-width: 220px;
+  display: inline-block;
+}
+
+.admin-models {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: 240px;
+}
+
+.admin-model-chip {
+  font-size: 11px;
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-weight: 500;
+}
+
+.admin-model-chip--image {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.admin-status {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11.5px;
+}
+
+.admin-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  width: fit-content;
+}
+
+.admin-badge--on {
+  background: rgba(47, 158, 68, 0.12);
+  color: var(--success);
+}
+
+.admin-badge--off {
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+
+.admin-badge--key {
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+}
+
+.admin-badge--nokey {
+  background: rgba(229, 72, 77, 0.1);
+  color: var(--danger);
+}
+
+.admin-row-actions {
+  display: flex;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+/* ---- Modal form ---- */
+.admin-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 22, 40, 0.35);
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.admin-modal {
+  width: 100%;
+  max-width: 480px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  max-height: 88vh;
+  animation: toast-in 0.16s ease-out;
+}
+
+.admin-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-modal__title {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.admin-modal__body {
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+}
+
+.admin-modal__footer {
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.admin-field-help {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.admin-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.admin-checkbox input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.admin-loading {
+  padding: 36px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
