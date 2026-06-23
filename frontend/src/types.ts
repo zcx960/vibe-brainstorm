@@ -194,3 +194,17 @@ export interface ImageHandlers {
   onDone?: (e: ImageDoneEvent) => void;
   onError?: (e: ImageFatalErrorEvent) => void;
 }
+
+export interface ImageUploadRequest {
+  project_id: string;
+  parent_id?: string | null;
+  title: string;
+  content?: string;
+  position: NodePosition;
+  file: File;
+}
+
+export interface ImageUploadResponse {
+  node: NodeT;
+  edge?: EdgeT | null;
+}

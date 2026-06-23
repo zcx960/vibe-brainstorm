@@ -29,6 +29,7 @@ from app.prompts import get_mode
 from app.realtime import manager
 from app.schemas import EdgeOut, NodeOut
 from app.services.context import build_context
+from app.services.history import record_history
 
 # Horizontal spacing between siblings and vertical drop below the parent.
 _X_SPACING = 280.0
@@ -140,6 +141,7 @@ async def run_expansion(
         edge_ids: list[str] = []
         usage = {"prompt_tokens": 0, "completion_tokens": 0}
         index = 0
+        history_recorded = False
 
         async for event in provider.stream_ideas(
             system_prompt=system_prompt,
@@ -149,6 +151,9 @@ async def run_expansion(
         ):
             etype = event.get("type")
             if etype == "idea":
+                if not history_recorded:
+                    await record_history(session, project_id, "brainstorm.expand")
+                    history_recorded = True
                 idea = event.get("idea") or {}
                 title = (idea.get("title") or "").strip() or f"想法 {index + 1}"
                 description = idea.get("description") or ""

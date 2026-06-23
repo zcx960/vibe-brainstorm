@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Header, status
+from fastapi import APIRouter, Depends, Header, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -104,13 +104,13 @@ async def update_project(
     return _project_out(project, access.role)
 
 
-@router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{project_id}")
 async def delete_project(
     project_id: str,
     access=Depends(require_role("owner")),
     session: AsyncSession = Depends(get_session),
     x_client_id: str | None = Header(default=None, alias="X-Client-Id"),
-) -> None:
+) -> Response:
     deleted_id = access.project.id  # capture before deletion
     await session.delete(access.project)
     await session.commit()
@@ -123,3 +123,4 @@ async def delete_project(
         },
         exclude_client=x_client_id,
     )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

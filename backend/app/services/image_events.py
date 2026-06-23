@@ -23,7 +23,7 @@ async def broadcast_created(
     project_id: str,
     *,
     node: Node,
-    edge: Edge,
+    edge: Edge | None,
     client_id: str | None,
 ) -> None:
     await manager.broadcast(
@@ -35,6 +35,8 @@ async def broadcast_created(
         },
         exclude_client=client_id,
     )
+    if edge is None:
+        return
     await manager.broadcast(
         project_id,
         {

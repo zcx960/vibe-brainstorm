@@ -9,6 +9,7 @@ description = "Backend for the AI brainstorm (脑爆) infinite-canvas app"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.110",
+    "python-multipart>=0.0.9",
     "uvicorn[standard]>=0.29",
     "sqlalchemy[asyncio]>=2.0",
     "asyncpg>=0.29",

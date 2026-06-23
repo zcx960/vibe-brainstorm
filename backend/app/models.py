@@ -91,6 +91,9 @@ class Project(Base):
     edges: Mapped[list["Edge"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )
+    histories: Mapped[list["ProjectHistory"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan"
+    )
     members: Mapped[list["ProjectMember"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )
@@ -135,6 +138,22 @@ class Edge(Base):
     data: Mapped[dict] = mapped_column(JSONType, default=dict, nullable=False)
 
     project: Mapped["Project"] = relationship(back_populates="edges")
+
+
+class ProjectHistory(Base):
+    __tablename__ = "project_histories"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid_str)
+    project_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
+    )
+    action: Mapped[str] = mapped_column(String(64), nullable=False)
+    snapshot: Mapped[dict] = mapped_column(JSONType, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, nullable=False
+    )
+
+    project: Mapped["Project"] = relationship(back_populates="histories")
 
 
 class ProjectMember(Base):

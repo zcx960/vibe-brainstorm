@@ -13,7 +13,7 @@ from __future__ import annotations
 import secrets
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -120,16 +120,13 @@ async def list_members(
     return MembersOut(members=members)
 
 
-@router.delete(
-    "/projects/{project_id}/members/{user_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
+@router.delete("/projects/{project_id}/members/{user_id}")
 async def remove_member(
     project_id: str,
     user_id: str,
     access=Depends(require_role("owner")),
     session: AsyncSession = Depends(get_session),
-) -> None:
+) -> Response:
     if user_id == access.user.id:
         raise HTTPException(
             status_code=400, detail="Cannot remove yourself via this route"
@@ -149,3 +146,4 @@ async def remove_member(
 
     await session.delete(membership)
     await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
