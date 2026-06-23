@@ -4,7 +4,12 @@ import { useGraphStore } from '../store/graphStore';
 import { useUiStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
 import { usePresenceStore } from '../store/presenceStore';
-import { createNode, patchProject } from '../api/projects';
+import {
+  createNode,
+  patchProject,
+  exportProjectDocx,
+  undoProjectHistory,
+} from '../api/projects';
 import { ShareDialog } from './ShareDialog';
 import { ThemeToggle } from './ThemeToggle';
 
@@ -14,6 +19,9 @@ export function Toolbar() {
   const projectId = useGraphStore((s) => s.projectId);
   const addNode = useGraphStore((s) => s.addNode);
   const applyLayout = useGraphStore((s) => s.applyLayout);
+  const historyCount = useGraphStore((s) => s.historyCount);
+  const replaceGraph = useGraphStore((s) => s.replaceGraph);
+  const refreshHistoryStatus = useGraphStore((s) => s.refreshHistoryStatus);
 
   const projects = useUiStore((s) => s.projects);
   const currentProjectId = useUiStore((s) => s.currentProjectId);
@@ -96,7 +104,10 @@ export function Toolbar() {
       content: '',
       data: { position: pos },
     })
-      .then((n) => addNode(n))
+      .then((n) => {
+        addNode(n);
+        void refreshHistoryStatus(projectId);
+      })
       .catch(() => pushToast('error', '新建节点失败'));
   };
 
@@ -105,12 +116,40 @@ export function Toolbar() {
     setLayouting(true);
     try {
       await applyLayout();
+      await refreshHistoryStatus(projectId);
       // Give React Flow a tick to apply positions, then fit.
       setTimeout(() => fitView({ padding: 0.25, duration: 400 }), 50);
     } catch {
       pushToast('error', '整理布局失败');
     } finally {
       setLayouting(false);
+    }
+  };
+
+  const handleUndo = async () => {
+    if (!projectId || historyCount === 0) return;
+    try {
+      const graph = await undoProjectHistory(projectId);
+      replaceGraph(graph);
+      await refreshHistoryStatus(projectId);
+      pushToast('success', '已回退一步历史');
+    } catch {
+      pushToast('error', '回退失败');
+    }
+  };
+
+  const handleExport = async () => {
+    if (!projectId) return;
+    try {
+      const blob = await exportProjectDocx(projectId);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${project?.name || 'brainstorm'}.docx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      pushToast('error', '导出失败');
     }
   };
 
@@ -178,6 +217,24 @@ export function Toolbar() {
         >
           ⛶ 适配视图
         </button>
+        <button
+          type="button"
+          className="btn"
+          onClick={handleUndo}
+          disabled={!projectId || historyCount === 0}
+          title={historyCount > 0 ? `回退一步（剩余 ${historyCount} 步）` : '没有可回退的历史'}
+        >
+          ↶ 回退
+        </button>
+        <button
+          type="button"
+          className="btn"
+          onClick={handleExport}
+          disabled={!projectId}
+          title="导出 Word"
+        >
+          ⤓ 导出
+        </button>
 
         {isOwner && project && (
           <button
@@ -233,7 +290,7 @@ export function Toolbar() {
         )}
       </div>
 
-      {shareOpen && project && (
+        {shareOpen && project && (
         <ShareDialog
           projectId={project.id}
           projectName={project.name}

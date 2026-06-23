@@ -3,7 +3,7 @@ import { useReactFlow } from '@xyflow/react';
 import type { IdeaRFNode } from '../../store/graphStore';
 import { useGraphStore } from '../../store/graphStore';
 import { useUiStore } from '../../store/uiStore';
-import { createEdge, createNode } from '../../api/projects';
+import { beginHistoryBatch, createEdge, createNode } from '../../api/projects';
 import { uploadImageNode } from '../../api/images';
 import {
   MenuItemButton,
@@ -29,15 +29,17 @@ export function CanvasContextMenu({
   const rootRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadParentRef = useRef<IdeaRFNode | null>(null);
-  const { deleteElements, fitView } = useReactFlow();
+  const { fitView } = useReactFlow();
 
   const projectId = useGraphStore((s) => s.projectId);
   const addNode = useGraphStore((s) => s.addNode);
   const addEdge = useGraphStore((s) => s.addEdge);
   const applyLayout = useGraphStore((s) => s.applyLayout);
+  const refreshHistoryStatus = useGraphStore((s) => s.refreshHistoryStatus);
 
   const openExpandPanel = useUiStore((s) => s.openExpandPanel);
   const openImagePanel = useUiStore((s) => s.openImagePanel);
+  const openDeleteConfirm = useUiStore((s) => s.openDeleteConfirm);
   const pushToast = useUiStore((s) => s.pushToast);
 
   const targetNode = menu.targetNode;
@@ -76,13 +78,19 @@ export function CanvasContextMenu({
     const position = parentNode ? childPosition(parentNode) : roundedPoint(menu.flow);
 
     try {
+      if (parentNode) {
+        await beginHistoryBatch(projectId);
+      }
       const node = await createNode(projectId, {
         parent_id: parentNode?.id ?? null,
         title: parentNode ? '新子节点' : '新想法',
         content: '',
         data: { position },
+      }, {
+        skipHistory: Boolean(parentNode),
       });
       addNode(node);
+      void refreshHistoryStatus(projectId);
 
       if (!parentNode) return;
 
@@ -90,8 +98,11 @@ export function CanvasContextMenu({
         const edge = await createEdge(projectId, {
           source_id: parentNode.id,
           target_id: node.id,
+        }, {
+          skipHistory: true,
         });
         addEdge(edge);
+        void refreshHistoryStatus(projectId);
       } catch {
         pushToast('error', '子节点已创建，但连线失败');
       }
@@ -132,6 +143,7 @@ export function CanvasContextMenu({
       });
       addNode(result.node);
       if (result.edge) addEdge(result.edge);
+      void refreshHistoryStatus(projectId);
       pushToast('success', '已添加图片节点');
     } catch (err) {
       pushToast('error', err instanceof Error ? err.message : '上传图片失败');
@@ -142,6 +154,7 @@ export function CanvasContextMenu({
     onClose();
     try {
       await applyLayout();
+      if (projectId) void refreshHistoryStatus(projectId);
       window.setTimeout(() => fitView({ padding: 0.25, duration: 400 }), 50);
     } catch {
       pushToast('error', '整理布局失败');
@@ -168,7 +181,10 @@ export function CanvasContextMenu({
   const handleDeleteNode = () => {
     if (!targetNode) return;
     onClose();
-    void deleteElements({ nodes: [{ id: targetNode.id }] });
+    openDeleteConfirm(
+      targetNode.id,
+      targetNode.data.title || targetNode.id || '未命名节点',
+    );
   };
 
   return (

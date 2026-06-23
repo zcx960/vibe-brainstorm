@@ -30,6 +30,9 @@ interface UiState {
   expandSourceId: string | null;
   panelOpen: boolean;
 
+  // Right-side node preview / editor.
+  previewNodeId: string | null;
+
   // Set of node ids that are mid-expansion (showing a spinner).
   expandingNodeIds: Set<string>;
 
@@ -45,6 +48,14 @@ interface UiState {
 
   // Sidebar visibility.
   sidebarOpen: boolean;
+
+  // Delete confirmation dialog.
+  deleteConfirmNodeId: string | null;
+  deleteConfirmNodeLabel: string;
+  deleteConfirmNodeIds: string[];
+  deleteConfirmEdgeIds: string[];
+  deleteConfirmOpen: boolean;
+  deleteConfirmBypassOnce: boolean;
 
   // Toasts.
   toasts: Toast[];
@@ -70,6 +81,8 @@ interface UiState {
 
   openExpandPanel: (nodeId: string) => void;
   closePanel: () => void;
+  openNodePreview: (nodeId: string) => void;
+  closeNodePreview: () => void;
 
   startExpanding: (nodeId: string) => void;
   stopExpanding: (nodeId: string) => void;
@@ -86,6 +99,14 @@ interface UiState {
   stopGenerating: (nodeId: string) => void;
 
   setSidebarOpen: (open: boolean) => void;
+
+  openDeleteConfirm: (nodeId: string, label: string) => void;
+  openDeleteConfirmFromFlow: (payload: {
+    nodes: { id: string; label: string }[];
+    edges: { id: string }[];
+  }) => void;
+  closeDeleteConfirm: () => void;
+  approveDeleteOnce: () => void;
 
   pushToast: (kind: Toast['kind'], message: string) => void;
   dismissToast: (id: string) => void;
@@ -133,6 +154,7 @@ export const useUiStore = create<UiState>((set, get) => ({
 
   expandSourceId: null,
   panelOpen: false,
+  previewNodeId: null,
   expandingNodeIds: new Set<string>(),
 
   imagePanelNodeId: null,
@@ -144,6 +166,13 @@ export const useUiStore = create<UiState>((set, get) => ({
   generatingNodeIds: new Set<string>(),
 
   sidebarOpen: true,
+
+  deleteConfirmNodeId: null,
+  deleteConfirmNodeLabel: '',
+  deleteConfirmNodeIds: [],
+  deleteConfirmEdgeIds: [],
+  deleteConfirmOpen: false,
+  deleteConfirmBypassOnce: false,
 
   toasts: [],
 
@@ -178,6 +207,7 @@ export const useUiStore = create<UiState>((set, get) => ({
     const project = get().projects.find((p) => p.id === id);
     set({
       currentProjectId: id,
+      previewNodeId: null,
       // Reset the expand form's mode to the project default when switching.
       mode: project?.default_mode || get().mode,
     });
@@ -206,12 +236,23 @@ export const useUiStore = create<UiState>((set, get) => ({
       return {
         expandSourceId: nodeId,
         panelOpen: true,
+        previewNodeId: null,
+        imagePanelNodeId: null,
         // Prefill mode from project default if the form hasn't diverged.
         mode: state.mode || project?.default_mode || state.modes[0]?.id || '',
         instruction: '',
       };
     }),
   closePanel: () => set({ panelOpen: false, expandSourceId: null }),
+
+  openNodePreview: (nodeId) =>
+    set({
+      previewNodeId: nodeId,
+      panelOpen: false,
+      expandSourceId: null,
+      imagePanelNodeId: null,
+    }),
+  closeNodePreview: () => set({ previewNodeId: null }),
 
   startExpanding: (nodeId) =>
     set((state) => {
@@ -255,6 +296,9 @@ export const useUiStore = create<UiState>((set, get) => ({
       const model = modelValid ? state.imageModel : firstImageModel(seedProvider);
       return {
         imagePanelNodeId: nodeId,
+        previewNodeId: null,
+        panelOpen: false,
+        expandSourceId: null,
         imageProvider: provider,
         imageModel: model,
         imagePrompt: defaultPrompt ?? state.imagePrompt,
@@ -276,6 +320,35 @@ export const useUiStore = create<UiState>((set, get) => ({
     }),
 
   setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
+
+  openDeleteConfirm: (deleteConfirmNodeId, deleteConfirmNodeLabel) =>
+    set({
+      deleteConfirmNodeId,
+      deleteConfirmNodeLabel,
+      deleteConfirmNodeIds: [deleteConfirmNodeId],
+      deleteConfirmEdgeIds: [],
+      deleteConfirmOpen: true,
+      deleteConfirmBypassOnce: false,
+    }),
+  openDeleteConfirmFromFlow: ({ nodes, edges }) =>
+    set({
+      deleteConfirmNodeId: nodes[0]?.id ?? null,
+      deleteConfirmNodeLabel: nodes[0]?.label ?? '',
+      deleteConfirmNodeIds: nodes.map((node) => node.id),
+      deleteConfirmEdgeIds: edges.map((edge) => edge.id),
+      deleteConfirmOpen: true,
+      deleteConfirmBypassOnce: false,
+    }),
+  closeDeleteConfirm: () =>
+    set({
+      deleteConfirmOpen: false,
+      deleteConfirmNodeId: null,
+      deleteConfirmNodeLabel: '',
+      deleteConfirmNodeIds: [],
+      deleteConfirmEdgeIds: [],
+      deleteConfirmBypassOnce: false,
+    }),
+  approveDeleteOnce: () => set({ deleteConfirmBypassOnce: true }),
 
   pushToast: (kind, message) =>
     set((state) => ({

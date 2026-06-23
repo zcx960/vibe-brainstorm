@@ -104,6 +104,15 @@ function dispatch(connectedProjectId: string, msg: CollabMessage): void {
       graph.removeEdge(msg.payload.edge_id);
       return;
 
+    case 'graph.restored':
+      if (graph.projectId !== connectedProjectId) return;
+      graph.replaceGraph({
+        nodes: msg.payload.nodes,
+        edges: msg.payload.edges,
+      });
+      void graph.refreshHistoryStatus(connectedProjectId);
+      return;
+
     case 'project.updated':
       // Project metadata lives in the UI store and is project-agnostic; apply
       // regardless of which graph is currently loaded.
