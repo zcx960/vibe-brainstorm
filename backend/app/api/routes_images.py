@@ -37,6 +37,7 @@ from app.services.image_upload import (
     create_uploaded_image_node,
     validate_image_upload,
 )
+from app.services.history import record_history
 
 router = APIRouter(prefix="/images", tags=["images"])
 
@@ -127,6 +128,7 @@ async def upload_image_node(
                 data=data,
             )
         )
+        await record_history(session, project_id, "image.upload")
         node, edge = await create_uploaded_image_node(
             session,
             ImageUploadNodeParams(

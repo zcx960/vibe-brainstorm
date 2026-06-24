@@ -20,6 +20,7 @@ from app.services.image_events import (
     edge_out_dict,
     node_out_dict,
 )
+from app.services.history import record_history
 from app.services.image_layout import child_position
 from app.services.image_media import store_media
 from app.services.image_references import reference_images_for
@@ -179,6 +180,7 @@ async def run_image_generation(
     node_ids: list[str] = []
     edge_ids: list[str] = []
     failed = 0
+    history_recorded = False
 
     yield {
         "event": "start",
@@ -205,6 +207,11 @@ async def run_image_generation(
             async for item in receive:
                 match item:
                     case _ImageSuccess(index=index, image=image):
+                        if not history_recorded:
+                            await record_history(
+                                session, params.project_id, "image.generate"
+                            )
+                            history_recorded = True
                         node, edge = await _persist_image_node(
                             session,
                             _PersistJob(

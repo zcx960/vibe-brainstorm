@@ -8,7 +8,12 @@ import {
   type EdgeChange,
 } from '@xyflow/react';
 import type { NodeT, EdgeT, GraphResponse } from '../types';
-import { getGraph, patchNode } from '../api/projects';
+import {
+  beginHistoryBatch,
+  getGraph,
+  getHistoryStatus,
+  patchNode,
+} from '../api/projects';
 import { layoutGraph } from '../lib/layout';
 
 // The data we hang on each React Flow node (consumed by IdeaNode / ImageNode).
@@ -73,9 +78,12 @@ interface GraphState {
   rfNodes: IdeaRFNode[];
   rfEdges: RFEdge[];
   loading: boolean;
+  historyCount: number;
 
   load: (projectId: string) => Promise<void>;
   clear: () => void;
+  replaceGraph: (graph: GraphResponse) => void;
+  refreshHistoryStatus: (projectId?: string) => Promise<void>;
 
   // React Flow change handlers.
   onNodesChange: (changes: NodeChange<IdeaRFNode>[]) => void;
@@ -110,6 +118,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   rfNodes: [],
   rfEdges: [],
   loading: false,
+  historyCount: 0,
 
   load: async (projectId) => {
     set({ loading: true, projectId });
@@ -120,13 +129,38 @@ export const useGraphStore = create<GraphState>((set, get) => ({
         rfEdges: graph.edges.map(toRFEdge),
         loading: false,
       });
+      await get().refreshHistoryStatus(projectId);
     } catch (err) {
       set({ loading: false });
       throw err;
     }
   },
 
-  clear: () => set({ rfNodes: [], rfEdges: [], projectId: null }),
+  clear: () =>
+    set({
+      rfNodes: [],
+      rfEdges: [],
+      projectId: null,
+      historyCount: 0,
+    }),
+
+  replaceGraph: (graph) =>
+    set({
+      rfNodes: graph.nodes.map(toRFNode),
+      rfEdges: graph.edges.map(toRFEdge),
+      loading: false,
+    }),
+
+  refreshHistoryStatus: async (projectId) => {
+    const pid = projectId ?? get().projectId;
+    if (!pid) return;
+    try {
+      const status = await getHistoryStatus(pid);
+      set({ historyCount: status.count });
+    } catch {
+      /* best-effort */
+    }
+  },
 
   onNodesChange: (changes) =>
     set((state) => ({
@@ -230,6 +264,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     if (!projectId || rfNodes.length === 0) return;
 
     const { positions } = await layoutGraph(rfNodes, rfEdges);
+    await beginHistoryBatch(projectId);
 
     // Apply positions to the in-memory graph.
     set((state) => ({
@@ -242,7 +277,12 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     // Persist each new position (fire and forget, in parallel).
     await Promise.allSettled(
       [...positions.entries()].map(([id, p]) =>
-        patchNode(projectId, id, { data: { position: { x: p.x, y: p.y } } }),
+        patchNode(
+          projectId,
+          id,
+          { data: { position: { x: p.x, y: p.y } } },
+          { skipHistory: true },
+        ),
       ),
     );
   },

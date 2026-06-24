@@ -9,7 +9,7 @@ Provider rows store an ``api_key`` server-side; it is NEVER returned to clients.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -121,14 +121,15 @@ async def update_provider(
     return _to_out(provider)
 
 
-@router.delete("/providers/{provider_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/providers/{provider_id}")
 async def delete_provider(
     provider_id: str,
     _: bool = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
-) -> None:
+) -> Response:
     provider = await session.get(ProviderConfig, provider_id)
     if provider is None:
         raise HTTPException(status_code=404, detail="Provider not found")
     await session.delete(provider)
     await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

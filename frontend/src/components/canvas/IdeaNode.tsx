@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState, type CSSProperties } from 'react';
-import { Handle, Position, useReactFlow, type NodeProps } from '@xyflow/react';
+import { Handle, Position, type NodeProps } from '@xyflow/react';
 import type { IdeaRFNode } from '../../store/graphStore';
 import { useGraphStore } from '../../store/graphStore';
 import { useUiStore } from '../../store/uiStore';
@@ -12,12 +12,12 @@ import { patchNode } from '../../api/projects';
 function IdeaNodeImpl({ id, data, selected }: NodeProps<IdeaRFNode>) {
   const projectId = useGraphStore((s) => s.projectId);
   const updateNodeContent = useGraphStore((s) => s.updateNodeContent);
-  const { deleteElements } = useReactFlow();
 
   const openExpandPanel = useUiStore((s) => s.openExpandPanel);
   const expanding = useUiStore((s) => s.expandingNodeIds.has(id));
   const openImagePanel = useUiStore((s) => s.openImagePanel);
   const generating = useUiStore((s) => s.generatingNodeIds.has(id));
+  const openDeleteConfirm = useUiStore((s) => s.openDeleteConfirm);
   const busy = expanding || generating;
 
   // Color of a remote collaborator who currently has this node selected (if
@@ -91,7 +91,7 @@ function IdeaNodeImpl({ id, data, selected }: NodeProps<IdeaRFNode>) {
           aria-label="删除节点"
           onClick={(e) => {
             e.stopPropagation();
-            void deleteElements({ nodes: [{ id }] });
+            openDeleteConfirm(id, data.title || '未命名节点');
           }}
           style={{
             position: 'absolute',

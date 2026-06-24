@@ -14,9 +14,21 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
+from sse_starlette.sse import AppStatus
 
 from app.db import Base, get_session
 from app.main import app
+
+
+@pytest.fixture(autouse=True)
+def reset_sse_app_status() -> Iterator[None]:
+    AppStatus.should_exit = False
+    AppStatus.should_exit_event = None
+    AppStatus.original_handler = None
+    yield
+    AppStatus.should_exit = False
+    AppStatus.should_exit_event = None
+    AppStatus.original_handler = None
 
 
 @pytest.fixture

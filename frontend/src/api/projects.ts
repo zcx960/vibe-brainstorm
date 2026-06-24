@@ -1,4 +1,4 @@
-import { http } from './client';
+import { API_BASE, authHeaders, http } from './client';
 import type { Project, NodeT, EdgeT, GraphResponse, NodeData } from '../types';
 
 // ---- Projects ----
@@ -52,8 +52,13 @@ export interface CreateNodeBody {
 export function createNode(
   projectId: string,
   body: CreateNodeBody,
+  options?: { skipHistory?: boolean },
 ): Promise<NodeT> {
-  return http.post<NodeT>(`/projects/${projectId}/nodes`, body);
+  return http.post<NodeT>(
+    `/projects/${projectId}/nodes`,
+    body,
+    historyHeaders(options),
+  );
 }
 
 export interface PatchNodeBody {
@@ -67,12 +72,24 @@ export function patchNode(
   projectId: string,
   nodeId: string,
   body: PatchNodeBody,
+  options?: { skipHistory?: boolean },
 ): Promise<NodeT> {
-  return http.patch<NodeT>(`/projects/${projectId}/nodes/${nodeId}`, body);
+  return http.patch<NodeT>(
+    `/projects/${projectId}/nodes/${nodeId}`,
+    body,
+    historyHeaders(options),
+  );
 }
 
-export function deleteNode(projectId: string, nodeId: string): Promise<void> {
-  return http.del(`/projects/${projectId}/nodes/${nodeId}`);
+export function deleteNode(
+  projectId: string,
+  nodeId: string,
+  options?: { skipHistory?: boolean },
+): Promise<void> {
+  return http.del(
+    `/projects/${projectId}/nodes/${nodeId}`,
+    historyHeaders(options),
+  );
 }
 
 // ---- Edges ----
@@ -86,10 +103,56 @@ export interface CreateEdgeBody {
 export function createEdge(
   projectId: string,
   body: CreateEdgeBody,
+  options?: { skipHistory?: boolean },
 ): Promise<EdgeT> {
-  return http.post<EdgeT>(`/projects/${projectId}/edges`, body);
+  return http.post<EdgeT>(
+    `/projects/${projectId}/edges`,
+    body,
+    historyHeaders(options),
+  );
 }
 
-export function deleteEdge(projectId: string, edgeId: string): Promise<void> {
-  return http.del(`/projects/${projectId}/edges/${edgeId}`);
+export function deleteEdge(
+  projectId: string,
+  edgeId: string,
+  options?: { skipHistory?: boolean },
+): Promise<void> {
+  return http.del(
+    `/projects/${projectId}/edges/${edgeId}`,
+    historyHeaders(options),
+  );
+}
+
+// ---- History ----
+
+export interface HistoryStatus {
+  can_undo: boolean;
+  count: number;
+}
+
+export function getHistoryStatus(projectId: string): Promise<HistoryStatus> {
+  return http.get<HistoryStatus>(`/projects/${projectId}/history`);
+}
+
+export function undoProjectHistory(projectId: string): Promise<GraphResponse> {
+  return http.post<GraphResponse>(`/projects/${projectId}/history/undo`);
+}
+
+export function beginHistoryBatch(projectId: string): Promise<void> {
+  return http.post<void>(`/projects/${projectId}/history/begin`);
+}
+
+export function exportProjectDocx(projectId: string): Promise<Blob> {
+  return fetch(`${API_BASE}/projects/${projectId}/export.docx`, {
+    headers: authHeaders(),
+  }).then(async (res) => {
+    if (!res.ok) throw new Error(`export failed: ${res.status}`);
+    return res.blob();
+  });
+}
+
+function historyHeaders(
+  options?: { skipHistory?: boolean },
+): Record<string, string> | undefined {
+  return options?.skipHistory ? { 'X-Skip-History': '1' } : undefined;
 }

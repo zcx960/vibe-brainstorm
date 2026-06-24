@@ -1,5 +1,5 @@
 import { memo, useState, type CSSProperties } from 'react';
-import { Handle, Position, useReactFlow, type NodeProps } from '@xyflow/react';
+import { Handle, Position, type NodeProps } from '@xyflow/react';
 import type { IdeaRFNode } from '../../store/graphStore';
 import { useUiStore } from '../../store/uiStore';
 import {
@@ -14,10 +14,10 @@ import {
  * node. It can also be used as the source for another image generation pass.
  */
 function ImageNodeImpl({ id, data, selected }: NodeProps<IdeaRFNode>) {
-  const { deleteElements } = useReactFlow();
   const openImagePanel = useUiStore((s) => s.openImagePanel);
   const generating = useUiStore((s) => s.generatingNodeIds.has(id));
   const peerColor = usePresenceStore(remoteSelectionColor(id));
+  const openDeleteConfirm = useUiStore((s) => s.openDeleteConfirm);
   const [broken, setBroken] = useState(false);
 
   const caption = data.prompt || data.title || '';
@@ -47,7 +47,7 @@ function ImageNodeImpl({ id, data, selected }: NodeProps<IdeaRFNode>) {
           aria-label="删除节点"
           onClick={(e) => {
             e.stopPropagation();
-            void deleteElements({ nodes: [{ id }] });
+            openDeleteConfirm(id, data.title || '未命名节点');
           }}
           style={{
             position: 'absolute',

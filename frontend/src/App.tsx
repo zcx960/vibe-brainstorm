@@ -21,6 +21,7 @@ import { Canvas } from './components/canvas/Canvas';
 import { PresenceLayer } from './components/presence/PresenceLayer';
 import { ExpandPanel } from './components/ExpandPanel';
 import { ImagePanel } from './components/ImagePanel';
+import { NodePreviewPanel } from './components/NodePreviewPanel';
 import { Toasts } from './components/Toasts';
 import { AuthGate } from './components/auth/AuthGate';
 
@@ -221,6 +222,7 @@ export default function App() {
             )}
           </div>
         </div>
+        <NodePreviewPanel />
         <ExpandPanel />
         <ImagePanel />
         <Toasts />

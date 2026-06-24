@@ -20,6 +20,7 @@ export type CollabMessage =
   | { type: 'node.deleted'; origin: string; payload: { node_id: string } }
   | { type: 'edge.created'; origin: string; payload: { edge: EdgeT } }
   | { type: 'edge.deleted'; origin: string; payload: { edge_id: string } }
+  | { type: 'graph.restored'; origin: string; payload: { nodes: NodeT[]; edges: EdgeT[] } }
   | { type: 'project.updated'; origin: string; payload: { project: Project } }
   | { type: 'project.deleted'; origin: string; payload: { project_id: string } }
   // ---- presence (from OTHER clients; the server excludes the sender) ----
@@ -239,6 +240,7 @@ function isCollabMessage(value: unknown): value is CollabMessage {
     case 'node.deleted':
     case 'edge.created':
     case 'edge.deleted':
+    case 'graph.restored':
     case 'project.updated':
     case 'project.deleted':
     case 'presence.state':

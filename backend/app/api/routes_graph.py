@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from urllib.parse import quote
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,6 +19,15 @@ from app.schemas import (
     NodeCreate,
     NodeOut,
     NodeUpdate,
+)
+from app.services.export_docx import build_project_docx
+from app.services.history import (
+    edge_out_from_snapshot,
+    history_count,
+    load_graph_snapshot,
+    node_out_from_snapshot,
+    record_history,
+    restore_latest_history,
 )
 
 router = APIRouter(prefix="/projects/{project_id}", tags=["graph"])
@@ -79,11 +90,14 @@ async def create_node(
     access=Depends(require_role("editor")),
     session: AsyncSession = Depends(get_session),
     x_client_id: str | None = Header(default=None, alias="X-Client-Id"),
+    x_skip_history: str | None = Header(default=None, alias="X-Skip-History"),
 ) -> NodeOut:
     if body.parent_id is not None:
         # Validate parent belongs to project (best-effort; 404 if not found).
         await _get_node(session, project_id, body.parent_id)
 
+    if not x_skip_history:
+        await record_history(session, project_id, "node.create")
     node = Node(
         project_id=project_id,
         parent_id=body.parent_id,
@@ -115,9 +129,12 @@ async def update_node(
     access=Depends(require_role("editor")),
     session: AsyncSession = Depends(get_session),
     x_client_id: str | None = Header(default=None, alias="X-Client-Id"),
+    x_skip_history: str | None = Header(default=None, alias="X-Skip-History"),
 ) -> NodeOut:
     node = await _get_node(session, project_id, node_id)
     fields = body.model_dump(exclude_unset=True)
+    if not x_skip_history:
+        await record_history(session, project_id, "node.update")
     if "title" in fields and fields["title"] is not None:
         node.title = fields["title"]
     if "content" in fields and fields["content"] is not None:
@@ -141,16 +158,19 @@ async def update_node(
     return out
 
 
-@router.delete("/nodes/{node_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/nodes/{node_id}")
 async def delete_node(
     project_id: str,
     node_id: str,
     access=Depends(require_role("editor")),
     session: AsyncSession = Depends(get_session),
     x_client_id: str | None = Header(default=None, alias="X-Client-Id"),
-) -> None:
+    x_skip_history: str | None = Header(default=None, alias="X-Skip-History"),
+) -> Response:
     node = await _get_node(session, project_id, node_id)
     deleted_id = node.id  # capture before deletion
+    if not x_skip_history:
+        await record_history(session, project_id, "node.delete")
 
     # Detach children (portable equivalent of ON DELETE SET NULL).
     child_rows = await session.execute(
@@ -180,6 +200,7 @@ async def delete_node(
         },
         exclude_client=x_client_id,
     )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # --------------------------------------------------------------------------- #
@@ -192,11 +213,14 @@ async def create_edge(
     access=Depends(require_role("editor")),
     session: AsyncSession = Depends(get_session),
     x_client_id: str | None = Header(default=None, alias="X-Client-Id"),
+    x_skip_history: str | None = Header(default=None, alias="X-Skip-History"),
 ) -> EdgeOut:
     # Validate endpoints exist within the project.
     await _get_node(session, project_id, body.source_id)
     await _get_node(session, project_id, body.target_id)
 
+    if not x_skip_history:
+        await record_history(session, project_id, "edge.create")
     edge = Edge(
         project_id=project_id,
         source_id=body.source_id,
@@ -219,16 +243,19 @@ async def create_edge(
     return out
 
 
-@router.delete("/edges/{edge_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/edges/{edge_id}")
 async def delete_edge(
     project_id: str,
     edge_id: str,
     access=Depends(require_role("editor")),
     session: AsyncSession = Depends(get_session),
     x_client_id: str | None = Header(default=None, alias="X-Client-Id"),
-) -> None:
+    x_skip_history: str | None = Header(default=None, alias="X-Skip-History"),
+) -> Response:
     edge = await _get_edge(session, project_id, edge_id)
     deleted_id = edge.id  # capture before deletion
+    if not x_skip_history:
+        await record_history(session, project_id, "edge.delete")
     await session.delete(edge)
     await session.commit()
     await manager.broadcast(
@@ -239,4 +266,94 @@ async def delete_edge(
             "payload": {"edge_id": deleted_id},
         },
         exclude_client=x_client_id,
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# --------------------------------------------------------------------------- #
+# History
+# --------------------------------------------------------------------------- #
+@router.get("/history")
+async def get_history_status(
+    project_id: str,
+    access=Depends(require_role("editor")),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, int | bool]:
+    count = await history_count(session, project_id)
+    return {"can_undo": count > 0, "count": count}
+
+
+@router.post("/history/undo", response_model=GraphOut)
+async def undo_history(
+    project_id: str,
+    access=Depends(require_role("editor")),
+    session: AsyncSession = Depends(get_session),
+    x_client_id: str | None = Header(default=None, alias="X-Client-Id"),
+) -> GraphOut:
+    restored = await restore_latest_history(session, project_id)
+    if restored is None:
+        raise HTTPException(status_code=409, detail="没有可回退的历史记录")
+
+    payload = restored.model_dump(mode="json")
+    await manager.broadcast(
+        project_id,
+        {
+            "type": "graph.restored",
+            "origin": x_client_id,
+            "payload": payload,
+        },
+        exclude_client=x_client_id,
+    )
+    return restored
+
+
+@router.post("/history/snapshot")
+async def snapshot_history(
+    project_id: str,
+    access=Depends(require_role("editor")),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    await record_history(session, project_id, "manual.snapshot")
+    await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/history/begin")
+async def begin_history_batch(
+    project_id: str,
+    access=Depends(require_role("editor")),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    await record_history(session, project_id, "batch.begin")
+    await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# --------------------------------------------------------------------------- #
+# Export
+# --------------------------------------------------------------------------- #
+@router.get("/export.docx")
+async def export_project_docx(
+    project_id: str,
+    access=Depends(require_role("editor")),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    snapshot = await load_graph_snapshot(session, project_id)
+    graph = GraphOut(
+        nodes=[node_out_from_snapshot(item) for item in snapshot["nodes"]],
+        edges=[edge_out_from_snapshot(item) for item in snapshot["edges"]],
+    )
+    content = build_project_docx(access.project.name, graph)
+    filename = f"{access.project.name or 'brainstorm'}.docx"
+    encoded = quote(filename)
+    return Response(
+        content=content,
+        media_type=(
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ),
+        headers={
+            "Content-Disposition": (
+                f"attachment; filename*=UTF-8''{encoded}"
+            )
+        },
     )
