@@ -151,6 +151,44 @@ export async function uploadImageNode(
   return payload;
 }
 
+/**
+ * Upload an image file to the project's media volume WITHOUT creating a canvas
+ * node. Returns the stored `/api/media/...` URL. Used by the gallery.
+ */
+export async function uploadMedia(
+  projectId: string,
+  file: File,
+): Promise<string> {
+  const form = new FormData();
+  form.set('project_id', projectId);
+  form.set('file', file);
+
+  const res = await fetch(`${API_BASE}/images/upload-media`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: form,
+  });
+
+  if (res.status === 401) {
+    try {
+      localStorage.removeItem(TOKEN_KEY);
+    } catch {
+      void 0;
+    }
+    window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+  }
+
+  const text = await res.text();
+  if (!res.ok) {
+    throw new Error(uploadErrorMessage(res.status, text));
+  }
+  const payload: unknown = JSON.parse(text || '{}');
+  if (!isRecord(payload) || typeof payload.url !== 'string') {
+    throw new Error('上传接口返回了无效结果');
+  }
+  return payload.url;
+}
+
 function dispatchFrame(frame: string, handlers: ImageHandlers): void {
   const trimmed = frame.trim();
   if (!trimmed) return;

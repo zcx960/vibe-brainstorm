@@ -9,6 +9,8 @@ export interface CanvasContextMenuState {
   readonly screen: CanvasPoint;
   readonly flow: CanvasPoint;
   readonly targetNode: IdeaRFNode | null;
+  // Set when the menu was opened by right-clicking an edge (connection line).
+  readonly targetEdgeId?: string | null;
 }
 
 interface MenuItemButtonProps {
@@ -20,8 +22,9 @@ interface MenuItemButtonProps {
 }
 
 export const MENU_WIDTH = 224;
-export const MENU_NODE_HEIGHT = 356;
-export const MENU_PANE_HEIGHT = 204;
+export const MENU_NODE_HEIGHT = 428;
+export const MENU_PANE_HEIGHT = 312;
+export const MENU_EDGE_HEIGHT = 60;
 export const VIEWPORT_GAP = 8;
 export const CHILD_OFFSET_X = 300;
 export const CHILD_OFFSET_Y = 40;

@@ -10,11 +10,40 @@ export interface NodeData {
   color?: string;
   collapsed?: boolean;
   // Image nodes (generated via /api/images/generate) carry these.
-  kind?: 'idea' | 'image';
+  kind?: 'idea' | 'image' | 'document' | 'region' | 'gallery';
   image_url?: string;
   prompt?: string;
   reference_image_urls?: string[];
+  // Region nodes (visual backboards for grouping) carry their box size.
+  width?: number;
+  height?: number;
+  // Gallery nodes hold a curated list of images.
+  images?: GalleryImage[];
   [k: string]: unknown;
+}
+
+// An image collected into a gallery node. `url` is a `/api/media/...` path,
+// either picked from a canvas image node or uploaded directly to the gallery.
+export interface GalleryImage {
+  id: string;
+  url: string;
+  caption?: string;
+  source: 'canvas' | 'upload';
+}
+
+// A collaborative annotation on a document node. `comment_id` matches the inline
+// comment mark baked into the document content (`<span data-comment-id=...>`).
+export interface DocComment {
+  id: string;
+  project_id: string;
+  node_id: string;
+  comment_id: string;
+  author_id: string | null;
+  author_name: string;
+  author_color: string;
+  quote: string;
+  body: string;
+  created_at: string;
 }
 
 export interface NodeT {

@@ -9,10 +9,12 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_session
-from app.models import Edge, Node
+from app.models import DocComment, Edge, Node
 from app.permissions import require_role
 from app.realtime import manager
 from app.schemas import (
+    DocCommentCreate,
+    DocCommentOut,
     EdgeCreate,
     EdgeOut,
     GraphOut,
@@ -24,9 +26,11 @@ from app.services.export_docx import build_project_docx
 from app.services.history import (
     edge_out_from_snapshot,
     history_count,
+    list_history,
     load_graph_snapshot,
     node_out_from_snapshot,
     record_history,
+    restore_history,
     restore_latest_history,
 )
 
@@ -83,6 +87,19 @@ async def get_graph(
 # --------------------------------------------------------------------------- #
 # Nodes
 # --------------------------------------------------------------------------- #
+@router.get("/nodes/{node_id}", response_model=NodeOut)
+async def get_node(
+    project_id: str,
+    node_id: str,
+    access=Depends(require_role("editor")),
+    session: AsyncSession = Depends(get_session),
+) -> NodeOut:
+    """Fetch a single node. Used by the standalone document editor page, which
+    only carries the project + node ids in its URL."""
+    node = await _get_node(session, project_id, node_id)
+    return NodeOut.model_validate(node)
+
+
 @router.post("/nodes", response_model=NodeOut, status_code=status.HTTP_201_CREATED)
 async def create_node(
     project_id: str,
@@ -204,6 +221,99 @@ async def delete_node(
 
 
 # --------------------------------------------------------------------------- #
+# Document comments (collaborative annotations on document nodes)
+# --------------------------------------------------------------------------- #
+@router.get("/nodes/{node_id}/comments", response_model=list[DocCommentOut])
+async def list_comments(
+    project_id: str,
+    node_id: str,
+    access=Depends(require_role("editor")),
+    session: AsyncSession = Depends(get_session),
+) -> list[DocCommentOut]:
+    await _get_node(session, project_id, node_id)
+    rows = await session.execute(
+        select(DocComment)
+        .where(DocComment.node_id == node_id)
+        .order_by(DocComment.created_at.asc())
+    )
+    return [DocCommentOut.model_validate(c) for c in rows.scalars().all()]
+
+
+@router.post(
+    "/nodes/{node_id}/comments",
+    response_model=DocCommentOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_comment(
+    project_id: str,
+    node_id: str,
+    body: DocCommentCreate,
+    access=Depends(require_role("editor")),
+    session: AsyncSession = Depends(get_session),
+    x_client_id: str | None = Header(default=None, alias="X-Client-Id"),
+) -> DocCommentOut:
+    await _get_node(session, project_id, node_id)
+    comment = DocComment(
+        project_id=project_id,
+        node_id=node_id,
+        comment_id=body.comment_id,
+        author_id=access.user.id,
+        author_name=access.user.display_name,
+        author_color=access.user.color,
+        quote=body.quote or "",
+        body=body.body,
+    )
+    session.add(comment)
+    await session.commit()
+    await session.refresh(comment)
+    out = DocCommentOut.model_validate(comment)
+    await manager.broadcast(
+        project_id,
+        {
+            "type": "comment.created",
+            "origin": x_client_id,
+            "payload": {"comment": out.model_dump(mode="json")},
+        },
+        exclude_client=x_client_id,
+    )
+    return out
+
+
+@router.delete("/nodes/{node_id}/comments/{comment_id}")
+async def delete_comment(
+    project_id: str,
+    node_id: str,
+    comment_id: str,
+    access=Depends(require_role("editor")),
+    session: AsyncSession = Depends(get_session),
+    x_client_id: str | None = Header(default=None, alias="X-Client-Id"),
+) -> Response:
+    # ``comment_id`` is the mark id shared with the document, not the row PK.
+    rows = await session.execute(
+        select(DocComment).where(
+            DocComment.node_id == node_id,
+            DocComment.comment_id == comment_id,
+        )
+    )
+    comments = rows.scalars().all()
+    if not comments:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    for comment in comments:
+        await session.delete(comment)
+    await session.commit()
+    await manager.broadcast(
+        project_id,
+        {
+            "type": "comment.deleted",
+            "origin": x_client_id,
+            "payload": {"comment_id": comment_id, "node_id": node_id},
+        },
+        exclude_client=x_client_id,
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# --------------------------------------------------------------------------- #
 # Edges
 # --------------------------------------------------------------------------- #
 @router.post("/edges", response_model=EdgeOut, status_code=status.HTTP_201_CREATED)
@@ -283,6 +393,17 @@ async def get_history_status(
     return {"can_undo": count > 0, "count": count}
 
 
+@router.get("/history/list")
+async def get_history_list(
+    project_id: str,
+    access=Depends(require_role("editor")),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, list[dict]]:
+    """Recent restore points (newest first), for the history dropdown."""
+    entries = await list_history(session, project_id, limit=10)
+    return {"entries": entries}
+
+
 @router.post("/history/undo", response_model=GraphOut)
 async def undo_history(
     project_id: str,
@@ -293,6 +414,33 @@ async def undo_history(
     restored = await restore_latest_history(session, project_id)
     if restored is None:
         raise HTTPException(status_code=409, detail="没有可回退的历史记录")
+
+    payload = restored.model_dump(mode="json")
+    await manager.broadcast(
+        project_id,
+        {
+            "type": "graph.restored",
+            "origin": x_client_id,
+            "payload": payload,
+        },
+        exclude_client=x_client_id,
+    )
+    return restored
+
+
+@router.post("/history/restore/{history_id}", response_model=GraphOut)
+async def restore_history_point(
+    project_id: str,
+    history_id: str,
+    access=Depends(require_role("editor")),
+    session: AsyncSession = Depends(get_session),
+    x_client_id: str | None = Header(default=None, alias="X-Client-Id"),
+) -> GraphOut:
+    """Roll the project back to a specific restore point (and every change made
+    after it)."""
+    restored = await restore_history(session, project_id, history_id)
+    if restored is None:
+        raise HTTPException(status_code=404, detail="找不到该历史记录")
 
     payload = restored.model_dump(mode="json")
     await manager.broadcast(

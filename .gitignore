@@ -34,3 +34,6 @@ output/
 
 # Logs
 *.log
+
+# macOS archive junk
+__MACOSX/

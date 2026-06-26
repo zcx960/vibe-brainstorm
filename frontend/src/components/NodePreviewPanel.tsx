@@ -41,6 +41,8 @@ export function NodePreviewPanel() {
   if (!previewNodeId || !node) return null;
 
   const isImage = node.data.kind === 'image';
+  const isGallery = node.data.kind === 'gallery';
+  const galleryImages = isGallery ? node.data.images ?? [] : [];
   const titleChanged = titleDraft.trim() !== node.data.title;
   const contentChanged = contentDraft !== node.data.content;
   const dirty = titleChanged || contentChanged;
@@ -122,14 +124,44 @@ export function NodePreviewPanel() {
           />
         </label>
 
-        <label className="field node-preview__content-field">
-          <span className="field__label">正文</span>
-          <textarea
-            className="field__control node-preview__content-input"
-            value={contentDraft}
-            onChange={(event) => setContentDraft(event.target.value)}
-          />
-        </label>
+        {isGallery ? (
+          <section className="node-preview__gallery">
+            <div className="node-preview__meta-label">图库({galleryImages.length} 张)</div>
+            {galleryImages.length > 0 && (
+              <div className="node-preview__gallery-grid">
+                {galleryImages.slice(0, 6).map((img) => (
+                  <div key={img.id} className="node-preview__gallery-thumb">
+                    <img src={img.url} alt={img.caption || ''} />
+                  </div>
+                ))}
+              </div>
+            )}
+            <button
+              type="button"
+              className="btn"
+              onClick={() => {
+                if (projectId) {
+                  window.open(
+                    `/gallery/${encodeURIComponent(projectId)}/${encodeURIComponent(node.id)}`,
+                    '_blank',
+                    'noopener',
+                  );
+                }
+              }}
+            >
+              打开图库
+            </button>
+          </section>
+        ) : (
+          <label className="field node-preview__content-field">
+            <span className="field__label">正文</span>
+            <textarea
+              className="field__control node-preview__content-input"
+              value={contentDraft}
+              onChange={(event) => setContentDraft(event.target.value)}
+            />
+          </label>
+        )}
 
         {isImage && node.data.prompt && (
           <section className="node-preview__meta">

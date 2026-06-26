@@ -198,6 +198,34 @@ class EdgeCreate(BaseModel):
 
 
 # --------------------------------------------------------------------------- #
+# Document comments (collaborative annotations)
+# --------------------------------------------------------------------------- #
+class DocCommentCreate(BaseModel):
+    comment_id: str
+    quote: str | None = None
+    body: str
+
+
+class DocCommentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    project_id: str
+    node_id: str
+    comment_id: str
+    author_id: str | None = None
+    author_name: str
+    author_color: str
+    quote: str
+    body: str
+    created_at: datetime
+
+    @field_serializer("created_at")
+    def _ser_dt(self, value: datetime) -> str:
+        return value.isoformat()
+
+
+# --------------------------------------------------------------------------- #
 # Brainstorm
 # --------------------------------------------------------------------------- #
 ContextStrategy = Literal["node", "ancestors", "full"]
