@@ -22,7 +22,9 @@ from app.db import get_session
 from app.models import Project, User
 from app.permissions import ROLE_RANK, get_role
 from app.schemas import EdgeOut, ImageGenerateRequest, NodeOut
+from app.llm.image import GeneratedImage
 from app.services.image_events import broadcast_created
+from app.services.image_media import store_media
 from app.services.imagegen import (
     ImageGenerationParams,
     JsonValue,
@@ -45,6 +47,10 @@ router = APIRouter(prefix="/images", tags=["images"])
 class ImageUploadOut(BaseModel):
     node: NodeOut
     edge: EdgeOut | None = None
+
+
+class MediaUploadOut(BaseModel):
+    url: str
 
 
 def _sse(event: str, data: dict[str, JsonValue]) -> dict[str, str]:
@@ -150,3 +156,42 @@ async def upload_image_node(
         node=NodeOut.model_validate(node),
         edge=EdgeOut.model_validate(edge) if edge is not None else None,
     )
+
+
+@router.post(
+    "/upload-media",
+    response_model=MediaUploadOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_media(
+    file: UploadFile = File(...),
+    project_id: str = Form(...),
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> MediaUploadOut:
+    """Store an uploaded image in the media volume and return its URL, without
+    creating a canvas node. Used by the gallery to add user-uploaded images."""
+    await _require_project_editor(session, project_id, user)
+    try:
+        data = await file.read(MAX_UPLOAD_BYTES + 1)
+        image = validate_image_upload(
+            ImageUploadInput(
+                filename=file.filename,
+                content_type=file.content_type,
+                data=data,
+            )
+        )
+        _media_path, media_url = await store_media(
+            project_id,
+            GeneratedImage(
+                data=image.data,
+                mime_type=image.mime_type,
+                prompt="",
+            ),
+        )
+    except ImageUploadError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    finally:
+        await file.close()
+
+    return MediaUploadOut(url=media_url)

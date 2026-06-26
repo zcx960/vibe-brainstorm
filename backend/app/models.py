@@ -122,6 +122,38 @@ class Node(Base):
     )
 
 
+class DocComment(Base):
+    """A collaborative annotation anchored to a span of a document node.
+
+    The ``comment_id`` mirrors the id baked into the document's inline comment
+    mark (``<span data-comment-id=...>``) so the editor can map a sidebar entry
+    to its highlighted range. Author identity is snapshotted (``author_name`` /
+    ``author_color``) so a comment renders correctly even if the user row is
+    later removed (``author_id`` then nulls out).
+    """
+
+    __tablename__ = "doc_comments"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid_str)
+    project_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
+    )
+    node_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("nodes.id", ondelete="CASCADE"), nullable=False
+    )
+    comment_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    author_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    author_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    author_color: Mapped[str] = mapped_column(String(16), nullable=False)
+    quote: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    body: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, nullable=False
+    )
+
+
 class Edge(Base):
     __tablename__ = "edges"
 

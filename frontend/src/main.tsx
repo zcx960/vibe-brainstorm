@@ -2,6 +2,8 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import AdminApp from './admin/AdminApp.tsx';
+import DocEditorPage from './pages/DocEditorPage.tsx';
+import GalleryPage from './pages/GalleryPage.tsx';
 import { applyTheme, getStoredPref, initSystemThemeListener } from './theme';
 import './index.css';
 
@@ -10,13 +12,28 @@ import './index.css';
 applyTheme(getStoredPref());
 initSystemThemeListener();
 
-// Route by pathname: anything under `/admin` (with optional trailing slashes)
-// renders the self-contained admin mini-app instead of the main canvas app.
-// AdminApp brings its own auth + styling and must not pull in the canvas /
-// collab stores, so we keep <ReactFlowProvider> etc. inside <App /> only.
-const path = window.location.pathname.replace(/\/+$/, '');
+// Route by pathname:
+//   /admin            -> the self-contained admin mini-app
+//   /doc/{pid}/{nid}  -> the standalone collaborative document editor (new tab)
+//   everything else   -> the main canvas app
+// AdminApp / DocEditorPage bring their own shells and must not pull in the
+// canvas <ReactFlowProvider>, so we keep that inside <App /> only.
+const rawPath = window.location.pathname;
+const path = rawPath.replace(/\/+$/, '');
 const isAdmin = path === '/admin' || path.endsWith('/admin');
+const isDoc = rawPath.startsWith('/doc/');
+const isGallery = rawPath.startsWith('/gallery/');
+
+const root = isAdmin ? (
+  <AdminApp />
+) : isDoc ? (
+  <DocEditorPage />
+) : isGallery ? (
+  <GalleryPage />
+) : (
+  <App />
+);
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>{isAdmin ? <AdminApp /> : <App />}</StrictMode>,
+  <StrictMode>{root}</StrictMode>,
 );

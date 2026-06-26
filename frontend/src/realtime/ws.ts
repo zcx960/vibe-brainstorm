@@ -10,7 +10,7 @@
 // by comparing `origin` against `getClientId()`.
 
 import { getClientId, TOKEN_KEY } from '../api/client';
-import type { NodeT, EdgeT, Project, PresenceUser } from '../types';
+import type { NodeT, EdgeT, Project, PresenceUser, DocComment } from '../types';
 
 // ---- server -> client message envelope ----
 
@@ -23,6 +23,13 @@ export type CollabMessage =
   | { type: 'graph.restored'; origin: string; payload: { nodes: NodeT[]; edges: EdgeT[] } }
   | { type: 'project.updated'; origin: string; payload: { project: Project } }
   | { type: 'project.deleted'; origin: string; payload: { project_id: string } }
+  // ---- document comments (collaborative annotations) ----
+  | { type: 'comment.created'; origin: string; payload: { comment: DocComment } }
+  | {
+      type: 'comment.deleted';
+      origin: string;
+      payload: { comment_id: string; node_id: string };
+    }
   // ---- presence (from OTHER clients; the server excludes the sender) ----
   | {
       // Server-authored roster snapshot sent to a newcomer; has a null origin.
@@ -243,6 +250,8 @@ function isCollabMessage(value: unknown): value is CollabMessage {
     case 'graph.restored':
     case 'project.updated':
     case 'project.deleted':
+    case 'comment.created':
+    case 'comment.deleted':
     case 'presence.state':
     case 'presence.join':
     case 'presence.leave':

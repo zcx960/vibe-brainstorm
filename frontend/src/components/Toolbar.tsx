@@ -8,9 +8,9 @@ import {
   createNode,
   patchProject,
   exportProjectDocx,
-  undoProjectHistory,
 } from '../api/projects';
 import { ShareDialog } from './ShareDialog';
+import { HistoryMenu } from './HistoryMenu';
 import { ThemeToggle } from './ThemeToggle';
 
 export function Toolbar() {
@@ -20,7 +20,6 @@ export function Toolbar() {
   const addNode = useGraphStore((s) => s.addNode);
   const applyLayout = useGraphStore((s) => s.applyLayout);
   const historyCount = useGraphStore((s) => s.historyCount);
-  const replaceGraph = useGraphStore((s) => s.replaceGraph);
   const refreshHistoryStatus = useGraphStore((s) => s.refreshHistoryStatus);
 
   const projects = useUiStore((s) => s.projects);
@@ -64,6 +63,7 @@ export function Toolbar() {
   const [editingName, setEditingName] = useState(false);
   const [layouting, setLayouting] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -123,18 +123,6 @@ export function Toolbar() {
       pushToast('error', '整理布局失败');
     } finally {
       setLayouting(false);
-    }
-  };
-
-  const handleUndo = async () => {
-    if (!projectId || historyCount === 0) return;
-    try {
-      const graph = await undoProjectHistory(projectId);
-      replaceGraph(graph);
-      await refreshHistoryStatus(projectId);
-      pushToast('success', '已回退一步历史');
-    } catch {
-      pushToast('error', '回退失败');
     }
   };
 
@@ -217,15 +205,24 @@ export function Toolbar() {
         >
           ⛶ 适配视图
         </button>
-        <button
-          type="button"
-          className="btn"
-          onClick={handleUndo}
-          disabled={!projectId || historyCount === 0}
-          title={historyCount > 0 ? `回退一步（剩余 ${historyCount} 步）` : '没有可回退的历史'}
-        >
-          ↶ 回退
-        </button>
+        <div className="history-control">
+          <button
+            type="button"
+            className={`btn${historyOpen ? ' btn--active' : ''}`}
+            onClick={() => setHistoryOpen((v) => !v)}
+            disabled={!projectId || historyCount === 0}
+            title={
+              historyCount > 0
+                ? `查看最近 ${Math.min(historyCount, 10)} 条记录`
+                : '暂无历史记录'
+            }
+          >
+            🕘 历史{historyCount > 0 ? ` (${Math.min(historyCount, 10)})` : ''}
+          </button>
+          {historyOpen && projectId && (
+            <HistoryMenu projectId={projectId} onClose={() => setHistoryOpen(false)} />
+          )}
+        </div>
         <button
           type="button"
           className="btn"

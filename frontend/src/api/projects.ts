@@ -1,5 +1,12 @@
 import { API_BASE, authHeaders, http } from './client';
-import type { Project, NodeT, EdgeT, GraphResponse, NodeData } from '../types';
+import type {
+  Project,
+  NodeT,
+  EdgeT,
+  GraphResponse,
+  NodeData,
+  DocComment,
+} from '../types';
 
 // ---- Projects ----
 
@@ -92,6 +99,48 @@ export function deleteNode(
   );
 }
 
+export function getNode(projectId: string, nodeId: string): Promise<NodeT> {
+  return http.get<NodeT>(`/projects/${projectId}/nodes/${nodeId}`);
+}
+
+// ---- Document comments ----
+
+export function listComments(
+  projectId: string,
+  nodeId: string,
+): Promise<DocComment[]> {
+  return http.get<DocComment[]>(
+    `/projects/${projectId}/nodes/${nodeId}/comments`,
+  );
+}
+
+export interface CreateCommentBody {
+  comment_id: string;
+  quote?: string;
+  body: string;
+}
+
+export function createComment(
+  projectId: string,
+  nodeId: string,
+  body: CreateCommentBody,
+): Promise<DocComment> {
+  return http.post<DocComment>(
+    `/projects/${projectId}/nodes/${nodeId}/comments`,
+    body,
+  );
+}
+
+export function deleteComment(
+  projectId: string,
+  nodeId: string,
+  commentId: string,
+): Promise<void> {
+  return http.del(
+    `/projects/${projectId}/nodes/${nodeId}/comments/${commentId}`,
+  );
+}
+
 // ---- Edges ----
 
 export interface CreateEdgeBody {
@@ -136,6 +185,27 @@ export function getHistoryStatus(projectId: string): Promise<HistoryStatus> {
 
 export function undoProjectHistory(projectId: string): Promise<GraphResponse> {
   return http.post<GraphResponse>(`/projects/${projectId}/history/undo`);
+}
+
+export interface HistoryEntry {
+  id: string;
+  action: string;
+  created_at: string;
+}
+
+export function listHistory(projectId: string): Promise<HistoryEntry[]> {
+  return http
+    .get<{ entries: HistoryEntry[] }>(`/projects/${projectId}/history/list`)
+    .then((r) => r.entries);
+}
+
+export function restoreHistory(
+  projectId: string,
+  historyId: string,
+): Promise<GraphResponse> {
+  return http.post<GraphResponse>(
+    `/projects/${projectId}/history/restore/${historyId}`,
+  );
 }
 
 export function beginHistoryBatch(projectId: string): Promise<void> {

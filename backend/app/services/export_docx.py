@@ -61,7 +61,11 @@ def build_project_docx(project_name: str, graph: GraphOut) -> bytes:
 
 
 def _ordered_nodes(graph: GraphOut) -> list[tuple[int, NodeOut]]:
-    nodes = sorted(graph.nodes, key=lambda n: n.created_at)
+    # Region nodes are visual backboards for grouping, not content — skip them.
+    nodes = sorted(
+        (n for n in graph.nodes if (n.data or {}).get("kind") != "region"),
+        key=lambda n: n.created_at,
+    )
     by_id = {node.id: node for node in nodes}
     children: dict[str | None, list[NodeOut]] = {}
     roots: list[NodeOut] = []

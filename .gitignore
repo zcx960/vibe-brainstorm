@@ -37,3 +37,6 @@ output/
 
 # Local archives / handoff bundles
 *.zip
+
+# macOS archive junk
+__MACOSX/

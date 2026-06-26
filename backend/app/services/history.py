@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import delete, select
+from sqlalchemy import and_, delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Edge, Node, ProjectHistory
@@ -91,21 +91,37 @@ async def history_count(session: AsyncSession, project_id: str) -> int:
     return len(rows.scalars().all())
 
 
-async def restore_latest_history(
+async def list_history(
     session: AsyncSession,
     project_id: str,
-) -> GraphOut | None:
-    row = await session.execute(
-        select(ProjectHistory)
+    limit: int = 10,
+) -> list[dict[str, Any]]:
+    """Return the most recent history entries (newest first), without their
+    (potentially large) snapshots. Each entry is a restore point: restoring it
+    rolls the project back to the state just before that ``action``."""
+    rows = await session.execute(
+        select(
+            ProjectHistory.id,
+            ProjectHistory.action,
+            ProjectHistory.created_at,
+        )
         .where(ProjectHistory.project_id == project_id)
         .order_by(ProjectHistory.created_at.desc(), ProjectHistory.id.desc())
-        .limit(1)
+        .limit(limit)
     )
-    history = row.scalar_one_or_none()
-    if history is None:
-        return None
+    return [
+        {"id": r.id, "action": r.action, "created_at": _dt(r.created_at)}
+        for r in rows.all()
+    ]
 
-    snapshot = history.snapshot or {"nodes": [], "edges": []}
+
+async def _apply_snapshot(
+    session: AsyncSession,
+    project_id: str,
+    snapshot: dict[str, Any] | None,
+) -> None:
+    """Replace the project's nodes/edges with those captured in ``snapshot``."""
+    snapshot = snapshot or {"nodes": [], "edges": []}
     nodes_data = list(snapshot.get("nodes") or [])
     edges_data = list(snapshot.get("edges") or [])
 
@@ -140,7 +156,56 @@ async def restore_latest_history(
             )
         )
 
-    await session.delete(history)
+
+async def restore_history(
+    session: AsyncSession,
+    project_id: str,
+    history_id: str | None = None,
+) -> GraphOut | None:
+    """Restore the project to a chosen history entry.
+
+    ``history_id=None`` targets the latest entry (classic single-step undo).
+    Restoring entry *N* applies its snapshot and discards entry *N* together
+    with every entry newer than it — those newer snapshots describe states that
+    no longer lie on the timeline, while older entries remain so the user can
+    keep stepping further back.
+    """
+    if history_id is None:
+        row = await session.execute(
+            select(ProjectHistory)
+            .where(ProjectHistory.project_id == project_id)
+            .order_by(ProjectHistory.created_at.desc(), ProjectHistory.id.desc())
+            .limit(1)
+        )
+        target = row.scalar_one_or_none()
+    else:
+        target = await session.get(ProjectHistory, history_id)
+        if target is not None and target.project_id != project_id:
+            target = None
+    if target is None:
+        return None
+
+    # Collect the target plus every newer entry (by created_at, id as tiebreak).
+    newer = await session.execute(
+        select(ProjectHistory.id).where(
+            ProjectHistory.project_id == project_id,
+            or_(
+                ProjectHistory.created_at > target.created_at,
+                and_(
+                    ProjectHistory.created_at == target.created_at,
+                    ProjectHistory.id >= target.id,
+                ),
+            ),
+        )
+    )
+    delete_ids = list(newer.scalars().all())
+
+    await _apply_snapshot(session, project_id, target.snapshot)
+
+    if delete_ids:
+        await session.execute(
+            delete(ProjectHistory).where(ProjectHistory.id.in_(delete_ids))
+        )
     await session.commit()
 
     restored = await load_graph_snapshot(session, project_id)
@@ -148,6 +213,14 @@ async def restore_latest_history(
         nodes=[node_out_from_snapshot(item) for item in restored["nodes"]],
         edges=[edge_out_from_snapshot(item) for item in restored["edges"]],
     )
+
+
+async def restore_latest_history(
+    session: AsyncSession,
+    project_id: str,
+) -> GraphOut | None:
+    """Classic single-step undo: restore the most recent history entry."""
+    return await restore_history(session, project_id, None)
 
 
 async def capture_current_state(

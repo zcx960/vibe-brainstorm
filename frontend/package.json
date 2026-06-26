@@ -9,6 +9,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tiptap/core": "^2.11.5",
+    "@tiptap/extension-highlight": "^2.11.5",
+    "@tiptap/extension-link": "^2.11.5",
+    "@tiptap/extension-text-align": "^2.11.5",
+    "@tiptap/extension-underline": "^2.11.5",
+    "@tiptap/pm": "^2.11.5",
+    "@tiptap/react": "^2.11.5",
+    "@tiptap/starter-kit": "^2.11.5",
     "@xyflow/react": "^12.3.5",
     "elkjs": "^0.9.3",
     "react": "^19.0.0",

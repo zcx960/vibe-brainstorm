@@ -1,7 +1,21 @@
 import ELK from 'elkjs/lib/elk.bundled.js';
-import type { Node, Edge } from '@xyflow/react';
 
 const elk = new ELK();
+
+// Minimal structural inputs layoutGraph needs. React Flow `Node`/`Edge` satisfy
+// these, and so do synthetic region "blocks" we build for grouped layout.
+export interface LayoutNodeInput {
+  id: string;
+  width?: number | null;
+  height?: number | null;
+  measured?: { width?: number; height?: number } | null;
+}
+
+export interface LayoutEdgeInput {
+  id: string;
+  source: string;
+  target: string;
+}
 
 // Default card footprint used for layout when a node hasn't been measured yet.
 export const NODE_WIDTH = 240;
@@ -26,8 +40,8 @@ export interface LayoutResult {
  * whether to apply and/or persist them.
  */
 export async function layoutGraph(
-  nodes: Node[],
-  edges: Edge[],
+  nodes: LayoutNodeInput[],
+  edges: LayoutEdgeInput[],
 ): Promise<LayoutResult> {
   const positions = new Map<string, { x: number; y: number }>();
   if (nodes.length === 0) return { positions };
